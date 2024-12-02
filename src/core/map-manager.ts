@@ -4,6 +4,7 @@ import LevelManager from '@/core/level-manager'
 
 import { grasslandConfig } from '@/assets/grassland/grassland.config'
 import { config } from '@/configs/game.config'
+import { getSpriteCoord, parseSpriteIndex } from '@/utils/helpers'
 
 export default class MapManager {
     private assetManager: AssetManager
@@ -52,27 +53,29 @@ export default class MapManager {
     }
 
     private renderObjects(): void {
-        const treeImage = this.assetManager.getImage('grasslandTrees')
         const objectsMatrix = this.levelManager.getObjectsMatrix()
-
-        if (treeImage && objectsMatrix) {
+        if (objectsMatrix) {
             objectsMatrix.forEach((row, rowIndex) => {
                 row.forEach((tileType, colIndex) => {
-                    if (tileType > 0) {
+                    if (tileType) {
                         const context = this.canvasManager.getContext()
-                        const { x, y } = this.calculateTilePosition(rowIndex, colIndex)
-                        const { sprite, width, height } = grasslandConfig.trees
-                        context.drawImage(
-                            treeImage,
-                            sprite[tileType - 1][0],
-                            sprite[tileType - 1][1],
-                            width,
-                            height,
-                            x - width / 2,
-                            y - height + config.tile.height,
-                            width,
-                            height,
-                        )
+                        const sprite = parseSpriteIndex(tileType)
+                        const image = this.assetManager.getImage(sprite.name)
+                        if (image) {
+                            const { x, y } = this.calculateTilePosition(rowIndex, colIndex)
+                            const { width, height } = grasslandConfig[sprite.name]
+                            context.drawImage(
+                                image,
+                                getSpriteCoord(sprite.col - 1, sprite.row - 1, width, height)[0],
+                                getSpriteCoord(sprite.col - 1, sprite.row - 1, width, height)[1],
+                                width,
+                                height,
+                                x - width / 2,
+                                y - height + config.tile.height,
+                                width,
+                                height,
+                            )
+                        }
                     }
                 })
             })
@@ -88,31 +91,34 @@ export default class MapManager {
         }
     }
 
-    private renderTileGrid(terrainMatrix: number[][] = []): void {
+    private renderTileGrid(): void {
         if (config.debug.showTileGrid) {
-            terrainMatrix.forEach((row, rowIndex) => {
-                row.forEach((_, colIndex) => {
-                    const context = this.canvasManager.getContext()
-                    const { x, y } = this.calculateTilePosition(rowIndex, colIndex)
+            const terrainMatrix = this.levelManager.getTerrainMatrix()
+            if (terrainMatrix) {
+                terrainMatrix.forEach((row, rowIndex) => {
+                    row.forEach((_, colIndex) => {
+                        const context = this.canvasManager.getContext()
+                        const { x, y } = this.calculateTilePosition(rowIndex, colIndex)
 
-                    context.strokeStyle = '#fff'
-                    context.beginPath()
-                    context.moveTo(x, y)
-                    context.lineTo(x + config.tile.width_half, y + config.tile.height_half)
-                    context.lineTo(x, y + config.tile.height)
-                    context.lineTo(x - config.tile.width_half, y + config.tile.height_half)
-                    context.closePath()
-                    context.stroke()
+                        context.strokeStyle = '#fff'
+                        context.beginPath()
+                        context.moveTo(x, y)
+                        context.lineTo(x + config.tile.width_half, y + config.tile.height_half)
+                        context.lineTo(x, y + config.tile.height)
+                        context.lineTo(x - config.tile.width_half, y + config.tile.height_half)
+                        context.closePath()
+                        context.stroke()
 
-                    const text = `${rowIndex}x${colIndex}`
-                    context.fillStyle = 'white'
-                    context.font = '10px Arial'
+                        const text = `${rowIndex}x${colIndex}`
+                        context.fillStyle = 'white'
+                        context.font = '10px Arial'
 
-                    const textWidth = context.measureText(text).width
+                        const textWidth = context.measureText(text).width
 
-                    context.fillText(text, x - textWidth / 2, y + config.tile.height_half + 3)
+                        context.fillText(text, x - textWidth / 2, y + config.tile.height_half + 3)
+                    })
                 })
-            })
+            }
         }
     }
 

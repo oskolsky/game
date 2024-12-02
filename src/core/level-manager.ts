@@ -30,7 +30,7 @@ export default class LevelManager {
         return this.currentLevel.terrainMatrix
     }
 
-    public getObjectsMatrix(): number[][] | undefined {
+    public getObjectsMatrix(): string[][] | undefined {
         if (!this.currentLevel) {
             throw new Error('No level is currently loaded')
         }

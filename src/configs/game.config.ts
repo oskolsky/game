@@ -1,4 +1,5 @@
 export const config = {
+    season: 'summer', // summer, winter
     mapCenter: [7, 7],
     tile: {
         width: 64,
@@ -7,7 +8,7 @@ export const config = {
         height_half: 16,
     },
     debug: {
-        showTileGrid: false,
+        showTileGrid: true,
         showScreenCenter: false,
     },
 }
