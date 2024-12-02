@@ -1,11 +1,9 @@
-import tileImage from './images/tile.png'
+import grasslandTrees from './grassland/trees.png'
 import selectTileImage from './images/select-tile.png'
-import buildingImage from './images/building.png'
-import treeImage from './images/tree.png'
+import tileImage from './images/tile.png'
 
-export const assets = {
-    tileImage: tileImage,
-    selectTileImage: selectTileImage,
-    buildingImage: buildingImage,
-    treeImage: treeImage,
-}
+export const assets = [
+    { key: 'grasslandTrees', path: grasslandTrees },
+    { key: 'selectTile', path: selectTileImage },
+    { key: 'tile', path: tileImage },
+]

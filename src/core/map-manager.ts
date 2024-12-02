@@ -1,229 +1,206 @@
 import AssetManager from '@/core/asset-manager'
 import CanvasManager from '@/core/canvas-manager'
+import LevelManager from '@/core/level-manager'
 
-import { assets } from '@/assets/assets'
-import { buildingMatrix, matrix, tile } from '@/core/tiles'
+import { grasslandConfig } from '@/assets/grassland/grassland.config'
+import { config } from '@/configs/game.config'
 
 export default class MapManager {
-    private canvas: HTMLCanvasElement
-    private context: CanvasRenderingContext2D
-    private center: { row: number; cell: number }
-    private skeleton: boolean = false
-    private hoveredTile: { row: number; cell: number } | null = null
     private assetManager: AssetManager
+    private canvasManager: CanvasManager
+    private levelManager: LevelManager
 
-    private tileImage: HTMLImageElement | undefined
-    private selectTileImage: HTMLImageElement | undefined
-    private buildingImage: HTMLImageElement | undefined
-    private treeImage: HTMLImageElement | undefined
+    private mapShift: { x: number; y: number }
+    private mapMoving: boolean = false
+    private hoveredTile: { row: number; cell: number } | null = null
+    private initialMousePosition: { x: number; y: number } | null = null
 
-    constructor(canvasManager: CanvasManager, center: { row: number; cell: number }, skeleton: boolean) {
-        this.canvas = canvasManager.getCanvas()
-        this.context = canvasManager.getContext()
-        this.center = center
-        this.assetManager = new AssetManager()
-        this.skeleton = skeleton
+    constructor() {
+        this.assetManager = AssetManager.getInstance()
+        this.canvasManager = CanvasManager.getInstance()
+        this.levelManager = LevelManager.getInstance()
 
-        // Load images
-        Promise.all([
-            this.assetManager.loadImage('tile', assets.tileImage),
-            this.assetManager.loadImage('selectTile', assets.selectTileImage),
-            this.assetManager.loadImage('building', assets.buildingImage),
-            this.assetManager.loadImage('tree', assets.treeImage),
-        ]).then(([tileImage, selectTileImage, buildingImage, treeImage]) => {
-            this.tileImage = tileImage
-            this.selectTileImage = selectTileImage
-            this.buildingImage = buildingImage
-            this.treeImage = treeImage
-            this.drawMap()
-        })
+        this.mapShift = this.calculateInitialMapShift()
 
-        // Set up event listeners for hover and click
-        this.canvas.addEventListener('mousemove', event => this.handleHover(event))
-        this.canvas.addEventListener('click', event => this.handleClick(event))
+        this.addEventListeners()
     }
 
-    /**
-     * Calculates the tile based on the coordinates in isometric projection.
-     * Returns null if the coordinates are outside the map.
-     */
-    private getCellByCoordinates(x: number, y: number): { row: number; cell: number } | null {
-        const centerMap = this.getCoordinatesByCell(this.center.row, this.center.cell)
-        const screenCenter = { x: this.canvas.width / 2, y: this.canvas.height / 2 }
-
-        // Adjust screen coordinates relative to the map center
-        const adjustedX = x - screenCenter.x + centerMap.x
-        const adjustedY = y - screenCenter.y + centerMap.y - 1
-
-        // Calculate row and cell based on isometric transformation
-        const row = Math.floor((adjustedY / tile.height_half - adjustedX / tile.width_half) / 2)
-        const cell = Math.floor((adjustedY / tile.height_half + adjustedX / tile.width_half) / 2)
-
-        // Check if the row and cell are within the bounds of the map matrix
-        if (row >= 0 && row < matrix.length && cell >= 0 && cell < matrix[row].length) {
-            return { row, cell }
-        }
-
-        // Return null if the click/hover is outside the map
-        return null
+    public renderMap(): void {
+        this.canvasManager.clear()
+        this.renderTerrain()
+        this.renderTileGrid()
+        this.renderSelectedTile()
+        this.renderObjects()
+        this.renderScreenCenter()
     }
 
-    public drawMap(): void {
-        this.drawTileMap()
-        this.drawBuilding()
-    }
+    private renderTerrain(): void {
+        const tileImage = this.assetManager.getImage('tile')
+        const terrainMatrix = this.levelManager.getTerrainMatrix()
 
-    /**
-     * Draws the tile map on the canvas.
-     */
-    public drawTileMap(): void {
-        if (!this.tileImage) return // Wait until the tile image is loaded
+        // console.log('terrainMatrix', terrainMatrix)
 
-        const centerMap = this.getCoordinatesByCell(this.center.row, this.center.cell)
-        const screenCenter = { x: this.canvas.width / 2, y: this.canvas.height / 2 }
-
-        // Iterate through the map matrix and draw each tile
-        for (let row = 0; row < matrix.length; row++) {
-            for (let col = 0; col < matrix[row].length; col++) {
-                const x = (col - row) * tile.width_half + screenCenter.x - centerMap.x
-                const y = (col + row) * tile.height_half + screenCenter.y - centerMap.y
-
-                // Determine if the tile is being hovered
-                const isHovered = !!(this.hoveredTile && this.hoveredTile.row === row && this.hoveredTile.cell === col)
-
-                this.drawTile(x, y, isHovered)
-
-                if (this.skeleton) {
-                    this.drawSkeleton(x, y, `${row},${col}`)
-                }
-            }
-        }
-
-        // Draw a debug point at the center of the screen
-        this.drawDebugPoint(screenCenter.x, screenCenter.y)
-    }
-
-    public drawBuilding(): void {
-        const centerMap = this.getCoordinatesByCell(this.center.row, this.center.cell)
-        const screenCenter = { x: this.canvas.width / 2, y: this.canvas.height / 2 }
-
-        // Iterate through the map matrix and draw each tile
-        for (let row = 0; row < buildingMatrix.length; row++) {
-            for (let col = 0; col < buildingMatrix[row].length; col++) {
-                const x = (col - row) * tile.width_half + screenCenter.x - centerMap.x
-                const y = (col + row) * tile.height_half + screenCenter.y - centerMap.y
-
-                const tileType = buildingMatrix[row][col]
-
-                if (tileType === 1 && this.buildingImage) {
-                    this.context.drawImage(
-                        this.buildingImage,
-                        x - this.buildingImage.width / 2,
-                        y - this.buildingImage.height + tile.height,
-                        this.buildingImage.width,
-                        this.buildingImage.height,
-                    )
-                }
-
-                if (tileType === 2 && this.treeImage) {
-                    this.context.drawImage(
-                        this.treeImage,
-                        x - this.treeImage.width / 2,
-                        y - this.treeImage.height + tile.height,
-                        this.treeImage.width,
-                        this.treeImage.height,
-                    )
-                }
-            }
-        }
-
-        // Draw a debug point at the center of the screen
-        this.drawDebugPoint(screenCenter.x, screenCenter.y)
-    }
-
-    /**
-     * Draws a tile at the specified position.
-     */
-    private drawTile(x: number, y: number, isHovered: boolean): void {
-        const tileImage = this.tileImage
-
-        // Draw the tile image in the appropriate position
-        if (tileImage) {
-            this.context.drawImage(tileImage, x - tile.width_half, y, tile.width, tile.height)
-        }
-
-        if (isHovered && this.selectTileImage) {
-            this.context.drawImage(this.selectTileImage, x - tile.width_half, y, tile.width, tile.height)
+        if (tileImage && terrainMatrix) {
+            const context = this.canvasManager.getContext()
+            terrainMatrix.forEach((row, rowIndex) => {
+                row.forEach((_, colIndex) => {
+                    const { x, y } = this.calculateTilePosition(rowIndex, colIndex)
+                    context.drawImage(tileImage, x - config.tile.width_half, y, config.tile.width, config.tile.height)
+                })
+            })
         }
     }
 
-    /**
-     * Draws a skeleton of the tile at the specified position.
-     */
-    private drawSkeleton(x: number, y: number, caption: string): void {
-        // Set the fill color to green for regular tiles
-        this.context.strokeStyle = '#fff'
-        this.context.beginPath()
-        this.context.moveTo(x, y)
-        this.context.lineTo(x + tile.width_half, y + tile.height_half)
-        this.context.lineTo(x, y + tile.height)
-        this.context.lineTo(x - tile.width_half, y + tile.height_half)
-        this.context.closePath()
-        this.context.stroke()
+    private renderObjects(): void {
+        const treeImage = this.assetManager.getImage('grasslandTrees')
+        const objectsMatrix = this.levelManager.getObjectsMatrix()
 
-        // Draw the caption in the center of the tile (for debugging)
-        this.context.fillStyle = 'white'
-        this.context.font = '10px Arial'
-        this.context.fillText(caption, x - 7, y + tile.height_half + 3)
-    }
-
-    /**
-     * Handles hover event on the canvas.
-     */
-    private handleHover(event: MouseEvent): void {
-        const { x, y } = event
-        const cell = this.getCellByCoordinates(x, y)
-
-        if (cell) {
-            this.hoveredTile = cell
-            this.drawMap() // Redraw map with hover effect
-        } else {
-            this.hoveredTile = null // Reset hover if outside the map
+        if (treeImage && objectsMatrix) {
+            objectsMatrix.forEach((row, rowIndex) => {
+                row.forEach((tileType, colIndex) => {
+                    if (tileType > 0) {
+                        const context = this.canvasManager.getContext()
+                        const { x, y } = this.calculateTilePosition(rowIndex, colIndex)
+                        const { sprite, width, height } = grasslandConfig.trees
+                        context.drawImage(
+                            treeImage,
+                            sprite[tileType - 1][0],
+                            sprite[tileType - 1][1],
+                            width,
+                            height,
+                            x - width / 2,
+                            y - height + config.tile.height,
+                            width,
+                            height,
+                        )
+                    }
+                })
+            })
         }
     }
 
-    /**
-     * Handles click event on the canvas.
-     */
+    private renderSelectedTile(): void {
+        const selectTileImage = this.assetManager.getImage('selectTile')
+        if (this.hoveredTile && selectTileImage) {
+            const context = this.canvasManager.getContext()
+            const { x, y } = this.calculateTilePosition(this.hoveredTile.row, this.hoveredTile.cell)
+            context.drawImage(selectTileImage, x - config.tile.width_half, y, config.tile.width, config.tile.height)
+        }
+    }
+
+    private renderTileGrid(terrainMatrix: number[][] = []): void {
+        if (config.debug.showTileGrid) {
+            terrainMatrix.forEach((row, rowIndex) => {
+                row.forEach((_, colIndex) => {
+                    const context = this.canvasManager.getContext()
+                    const { x, y } = this.calculateTilePosition(rowIndex, colIndex)
+
+                    context.strokeStyle = '#fff'
+                    context.beginPath()
+                    context.moveTo(x, y)
+                    context.lineTo(x + config.tile.width_half, y + config.tile.height_half)
+                    context.lineTo(x, y + config.tile.height)
+                    context.lineTo(x - config.tile.width_half, y + config.tile.height_half)
+                    context.closePath()
+                    context.stroke()
+
+                    const text = `${rowIndex}x${colIndex}`
+                    context.fillStyle = 'white'
+                    context.font = '10px Arial'
+
+                    const textWidth = context.measureText(text).width
+
+                    context.fillText(text, x - textWidth / 2, y + config.tile.height_half + 3)
+                })
+            })
+        }
+    }
+
+    private renderScreenCenter(): void {
+        if (config.debug.showScreenCenter) {
+            const context = this.canvasManager.getContext()
+            const canvas = this.canvasManager.getCanvas()
+            context.fillStyle = 'red'
+            context.fillRect(canvas.width / 2 - 2, canvas.height / 2 - 2, 4, 4)
+        }
+    }
+
+    private calculateTilePosition(row: number, col: number): { x: number; y: number } {
+        return {
+            x: (col - row) * config.tile.width_half + this.mapShift.x,
+            y: (col + row) * config.tile.height_half + this.mapShift.y,
+        }
+    }
+
+    private calculateInitialMapShift(): { x: number; y: number } {
+        const canvas = this.canvasManager.getCanvas()
+        const centerMap = this.getCoordinatesByCell(config.mapCenter[0], config.mapCenter[1])
+        return {
+            x: canvas.width / 2 - centerMap.x,
+            y: canvas.height / 2 - centerMap.y,
+        }
+    }
+
+    private addEventListeners(): void {
+        const canvas = this.canvasManager.getCanvas()
+        canvas.addEventListener('click', this.handleClick.bind(this))
+        canvas.addEventListener('mousemove', this.handleMouseMove.bind(this))
+        canvas.addEventListener('mousedown', this.handleMouseDown.bind(this))
+        canvas.addEventListener('mouseup', this.handleMouseUp.bind(this))
+    }
+
     private handleClick(event: MouseEvent): void {
-        const { x, y } = event
-        const cell = this.getCellByCoordinates(x, y)
+        const cell = this.getCellByCoordinates(event.x, event.y)
+        console.log(cell ? `Clicked tile coordinates: row ${cell.row}, cell ${cell.cell}` : 'Clicked outside the map')
+    }
 
-        if (cell) {
-            console.log(`Clicked tile coordinates: row ${cell.row}, cell ${cell.cell}`)
-        } else {
-            console.log('Clicked outside the map')
+    private handleMouseMove(event: MouseEvent): void {
+        const cell = this.getCellByCoordinates(event.x, event.y)
+        this.hoveredTile = cell || null
+
+        if (this.mapMoving && this.initialMousePosition) {
+            this.handleMapShift(event)
         }
     }
 
-    /**
-     * Draws a point at a specific location for debugging purposes.
-     */
-    private drawDebugPoint(x: number, y: number): void {
-        this.context.fillStyle = 'red'
-        this.context.beginPath()
-        this.context.arc(x, y, 5, 0, 2 * Math.PI)
-        this.context.closePath()
-        this.context.fill()
+    private handleMouseDown(event: MouseEvent): void {
+        this.mapMoving = true
+        this.initialMousePosition = { x: event.clientX, y: event.clientY }
     }
 
-    /**
-     * Converts row and cell to screen coordinates.
-     */
-    private getCoordinatesByCell(rowNumber: number, cellNumber: number): { x: number; y: number } {
-        const x = (cellNumber - rowNumber) * tile.width_half
-        const y = (cellNumber + rowNumber) * tile.height_half + tile.height_half
+    private handleMouseUp(): void {
+        this.mapMoving = false
+        this.initialMousePosition = null
+    }
 
-        return { x, y }
+    private handleMapShift(event: MouseEvent): void {
+        if (!this.initialMousePosition) return
+
+        const deltaX = event.clientX - this.initialMousePosition.x
+        const deltaY = event.clientY - this.initialMousePosition.y
+
+        this.mapShift.x += deltaX
+        this.mapShift.y += deltaY
+        this.initialMousePosition = { x: event.clientX, y: event.clientY }
+    }
+
+    private getCoordinatesByCell(row: number, col: number): { x: number; y: number } {
+        return {
+            x: (col - row) * config.tile.width_half,
+            y: (col + row) * config.tile.height_half + config.tile.height_half,
+        }
+    }
+
+    private getCellByCoordinates(x: number, y: number): { row: number; cell: number } | null {
+        const terrainMatrix = this.levelManager.getTerrainMatrix()
+        const adjustedX = x - this.mapShift.x
+        const adjustedY = y - this.mapShift.y - 1
+
+        const row = Math.floor((adjustedY / config.tile.height_half - adjustedX / config.tile.width_half) / 2)
+        const cell = Math.floor((adjustedY / config.tile.height_half + adjustedX / config.tile.width_half) / 2)
+
+        return terrainMatrix && row >= 0 && row < terrainMatrix.length && cell >= 0 && cell < terrainMatrix[row].length
+            ? { row, cell }
+            : null
     }
 }

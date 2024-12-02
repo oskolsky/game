@@ -1,4 +1,5 @@
 export default class CanvasManager {
+    private static instance: CanvasManager
     private canvas: HTMLCanvasElement
     private context: CanvasRenderingContext2D
 
@@ -14,6 +15,13 @@ export default class CanvasManager {
         this.canvas.height = window.innerHeight
 
         document.body.appendChild(this.canvas)
+    }
+
+    public static getInstance(): CanvasManager {
+        if (!CanvasManager.instance) {
+            CanvasManager.instance = new CanvasManager()
+        }
+        return CanvasManager.instance
     }
 
     public getCanvas(): HTMLCanvasElement {

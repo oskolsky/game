@@ -1,5 +1,6 @@
 const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const CopyPlugin = require('copy-webpack-plugin')
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 
 module.exports = (env, argv) => {
@@ -56,6 +57,14 @@ module.exports = (env, argv) => {
                 minify: isProduction,
             }),
             new CleanWebpackPlugin(),
+            new CopyPlugin({
+                patterns: [
+                    {
+                        from: 'src/data',
+                        to: 'data',
+                    },
+                ],
+            }),
         ],
     }
 }
