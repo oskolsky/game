@@ -1,6 +1,4 @@
-import { SpriteType } from '@/utils/enums'
-
-export const grasslandConfig: Record<SpriteType, { width: number; height: number }> = {
+export const grasslandConfig = {
     trees: {
         width: 128,
         height: 256,

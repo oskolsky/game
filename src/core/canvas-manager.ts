@@ -6,6 +6,7 @@ export default class CanvasManager {
     constructor() {
         this.canvas = document.createElement('canvas')
         this.context = this.canvas.getContext('2d')!
+        this.context.imageSmoothingEnabled = false
 
         if (!this.context) {
             throw new Error('Failed to initialize 2D canvas context.')

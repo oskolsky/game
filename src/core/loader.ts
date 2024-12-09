@@ -2,6 +2,7 @@ import AssetManager from '@/core/asset-manager'
 import LevelManager from '@/core/level-manager'
 
 export default class Loader {
+    private static instance: Loader
     private assetManager: AssetManager
     private levelManager: LevelManager
 
@@ -11,6 +12,13 @@ export default class Loader {
     constructor() {
         this.assetManager = AssetManager.getInstance()
         this.levelManager = LevelManager.getInstance()
+    }
+
+    public static getInstance(): Loader {
+        if (!Loader.instance) {
+            Loader.instance = new Loader()
+        }
+        return Loader.instance
     }
 
     public onComplete(callback: () => void): void {

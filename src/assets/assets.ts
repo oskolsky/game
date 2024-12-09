@@ -1,21 +1,21 @@
-import grassland from './grassland/summer/grassland.png'
-import rottentower from './grassland/summer/rottentower.png'
-import structures from './grassland/summer/structures.png'
-import tiledGrassland from './grassland/summer/tiled_grassland_2x2.png'
-import trees from './grassland/summer/trees.png'
-import watter from './grassland/summer/water.png'
+import terrainGrass from './terrain/grass.png'
 
-import selectTileImage from './images/select-tile.png'
-import tileImage from './images/tile.png'
+import objectsTrees from './objects/trees.png'
+import objectsStructures from './objects/structures.png'
+
+import characterClothes from './character/clothes.png'
+import characterHead from './character/head.png'
+
+import hover from './images/hover.png'
 
 export const assets = [
-    { key: 'structures', path: structures },
-    { key: 'trees', path: trees },
-    { key: 'watter', path: watter },
-    { key: 'grassland', path: grassland },
-    { key: 'rottentower', path: rottentower },
-    { key: 'tiledGrassland', path: tiledGrassland },
+    { key: 'terrain/grass', path: terrainGrass },
 
-    { key: 'selectTile', path: selectTileImage },
-    { key: 'tile', path: tileImage },
+    { key: 'objects/trees', path: objectsTrees },
+    { key: 'objects/structures', path: objectsStructures },
+
+    { key: 'character/clothes', path: characterClothes },
+    { key: 'character/head', path: characterHead },
+
+    { key: 'hover', path: hover },
 ]
